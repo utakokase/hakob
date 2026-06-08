@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import QRDisplay from "@/components/QRDisplay";
+import { encodeData } from "@/lib/codec";
 
 // ---- 型定義 ----
 type BuildingType = "マンション" | "アパート" | "一戸建て" | "";
@@ -173,11 +174,10 @@ export default function Home() {
     setAreaInput("");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const bytes = new TextEncoder().encode(JSON.stringify(form));
-    const encoded = btoa(String.fromCharCode(...bytes));
-    const url = `${window.location.origin}/view?d=${encodeURIComponent(encoded)}`;
+    const encoded = await encodeData(form);
+    const url = `${window.location.origin}/view?d=${encoded}`;
     setGeneratedUrl(url);
     setTimeout(() => document.getElementById("qr-section")?.scrollIntoView({ behavior: "smooth" }), 100);
   };

@@ -1,7 +1,8 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { decodeData } from "@/lib/codec";
 
 type ConditionData = {
   name?: string;
@@ -14,14 +15,11 @@ type ConditionData = {
   areas?: string[];
   walkMax?: string;
   ageMax?: string;
-  // マンション/アパート
   floorMin?: string;
   direction?: string;
-  // 一戸建て
   parking?: string;
   hasGarden?: boolean;
   hasGarage?: boolean;
-  // こだわり
   separateBath?: boolean;
   pet?: boolean;
   instrument?: boolean;
@@ -96,21 +94,17 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 function ViewContent() {
   const params = useSearchParams();
   const d = params.get("d");
+  const [data, setData] = useState<ConditionData | null>(null);
+  const [error, setError] = useState(false);
 
-  if (!d) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <p className="text-gray-400">URLが正しくありません</p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!d) { setError(true); return; }
+    decodeData<ConditionData>(d)
+      .then(setData)
+      .catch(() => setError(true));
+  }, [d]);
 
-  let data: ConditionData;
-  try {
-    const binary = atob(d);
-    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-    data = JSON.parse(new TextDecoder().decode(bytes));
-  } catch {
+  if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <p className="text-gray-400">データを読み込めませんでした</p>
@@ -118,7 +112,14 @@ function ViewContent() {
     );
   }
 
-  // こだわり条件を収集
+  if (!data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
+        読み込み中...
+      </div>
+    );
+  }
+
   const checkedOptions = Object.entries(LABEL_MAP)
     .filter(([key]) => data[key as keyof ConditionData] === true)
     .map(([, label]) => label);
@@ -134,7 +135,6 @@ function ViewContent() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      {/* ヘッダー */}
       <div className="bg-blue-600 px-5 py-4 flex items-start justify-between">
         <div>
           <div className="text-xs text-blue-200 font-semibold tracking-widest uppercase mb-0.5">RoomPass</div>
@@ -151,19 +151,16 @@ function ViewContent() {
       </div>
 
       <div className="px-4 py-5 space-y-4 max-w-xl mx-auto">
-
-        {/* 入居時期・家賃 */}
         <div className="grid grid-cols-2 gap-3">
           <Card title="入居希望時期">
             <div className="text-2xl font-bold text-yellow-400 leading-tight">{data.moveIn || "未入力"}</div>
           </Card>
-          <Card title="家賃上限（管理費込）">
+          <Card title="家賃（管理費込）">
             <div className="text-xl font-bold text-yellow-400 leading-tight">{rentDisplay}</div>
           </Card>
         </div>
 
-        {/* 間取り・面積 */}
-        {(data.layouts?.length || data.areaMin) && (
+        {(data.layouts?.length || (data.areaMin && data.areaMin !== "問わない")) && (
           <Card title="間取り・面積">
             <div className="flex flex-wrap gap-1.5 mb-2">
               {data.layouts?.map((l) => <Badge key={l} color="blue">{l}</Badge>)}
@@ -174,7 +171,6 @@ function ViewContent() {
           </Card>
         )}
 
-        {/* 希望エリア */}
         {data.areas?.length ? (
           <Card title="希望エリア・路線・駅">
             <div className="flex flex-wrap gap-1.5">
@@ -183,7 +179,6 @@ function ViewContent() {
           </Card>
         ) : null}
 
-        {/* 詳細条件 */}
         <Card title="詳細条件">
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -215,7 +210,6 @@ function ViewContent() {
           </div>
         </Card>
 
-        {/* こだわり条件 */}
         {checkedOptions.length > 0 && (
           <Card title="こだわり条件">
             <div className="flex flex-wrap gap-1.5">
@@ -224,7 +218,6 @@ function ViewContent() {
           </Card>
         )}
 
-        {/* フリーコメント */}
         {data.notes && (
           <Card title="その他・メモ">
             <div className="text-sm leading-relaxed">{data.notes}</div>
