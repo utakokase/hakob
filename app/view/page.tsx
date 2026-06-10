@@ -3,6 +3,8 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { decodeData } from "@/lib/codec";
+import { useLang } from "@/lib/i18n/context";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 type ConditionData = {
   name?: string;
@@ -43,43 +45,16 @@ type ConditionData = {
   notes?: string;
 };
 
-const LABEL_MAP: Record<string, string> = {
-  separateBath: "バス・トイレ別",
-  pet: "ペット可",
-  instrument: "楽器可",
-  twoPersonOk: "二人入居可",
-  reikinNone: "礼金なし",
-  shikikinNone: "敷金なし",
-  freeRent: "フリーレント",
-  internetFree: "ネット無料",
-  washerIndoor: "室内洗濯機置き場",
-  aircon: "エアコン付き",
-  autolock: "オートロック",
-  deliveryBox: "宅配ボックス",
-  bathDryer: "浴室乾燥機",
-  floorHeating: "床暖房",
-  reheating: "追い焚き",
-  washlet: "ウォシュレット",
-  systemKitchen: "システムキッチン",
-  ihCooktop: "IHコンロ",
-  guarantorFree: "保証人不要",
-  diy: "DIY可",
-  hasGarden: "庭あり",
-  hasGarage: "ガレージ付き",
-};
+const PREF_KEYS = [
+  "separateBath","pet","instrument","twoPersonOk","reikinNone","shikikinNone",
+  "freeRent","internetFree","washerIndoor","aircon","autolock","deliveryBox",
+  "bathDryer","floorHeating","reheating","washlet","systemKitchen","ihCooktop",
+  "guarantorFree","diy","hasGarden","hasGarage",
+];
 
-function Badge({ children, color = "blue" }: { children: React.ReactNode; color?: "blue" | "yellow" | "green" | "gray" }) {
-  const colors = {
-    blue: "bg-blue-600 text-white",
-    yellow: "bg-yellow-400 text-gray-900",
-    green: "bg-green-700 text-white",
-    gray: "bg-gray-700 text-white",
-  };
-  return (
-    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${colors[color]}`}>
-      {children}
-    </span>
-  );
+function Badge({ children, color = "blue" }: { children: React.ReactNode; color?: "blue"|"green"|"gray" }) {
+  const cls = { blue: "bg-blue-600 text-white", green: "bg-green-700 text-white", gray: "bg-gray-700 text-white" };
+  return <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${cls[color]}`}>{children}</span>;
 }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
@@ -91,142 +66,172 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
+// 入居時期キー → 表示文字列
+function formatMoveIn(key: string, asapLabel: string, undecidedLabel: string, lang: string): string {
+  if (!key) return "—";
+  if (key === "asap") return asapLabel;
+  if (key === "undecided") return undecidedLabel;
+  const [year, month] = key.split("-");
+  if (lang === "en") return `${new Date(Number(year), Number(month)-1).toLocaleString("en", { month: "long" })} ${year}`;
+  if (lang === "zh") return `${year}年${month}月`;
+  return `${year}年${month}月`;
+}
+
 function ViewContent() {
   const params = useSearchParams();
   const d = params.get("d");
+  const { t, lang } = useLang();
   const [data, setData] = useState<ConditionData | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!d) { setError(true); return; }
-    decodeData<ConditionData>(d)
-      .then(setData)
-      .catch(() => setError(true));
+    decodeData<ConditionData>(d).then(setData).catch(() => setError(true));
   }, [d]);
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <p className="text-gray-400">データを読み込めませんでした</p>
-      </div>
-    );
-  }
+  if (error) return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-900">
+      <p className="text-gray-400">{!d ? t.view.errorUrl : t.view.errorData}</p>
+    </div>
+  );
 
-  if (!data) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
-        読み込み中...
-      </div>
-    );
-  }
+  if (!data) return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
+      {t.common.loading}
+    </div>
+  );
 
-  const checkedOptions = Object.entries(LABEL_MAP)
-    .filter(([key]) => data[key as keyof ConditionData] === true)
-    .map(([, label]) => label);
+  const checkedOptions = PREF_KEYS
+    .filter((k) => data[k as keyof ConditionData] === true)
+    .map((k) => t.view.pLabels[k])
+    .filter(Boolean);
 
-  const isMansionOrApart = data.buildingType === "マンション" || data.buildingType === "アパート";
-  const isHouse = data.buildingType === "一戸建て";
+  const isMansionOrApart = data.buildingType === "mansion" || data.buildingType === "apartment";
+  const isHouse = data.buildingType === "house";
 
   const rentDisplay = (() => {
-    if (data.rentMin && data.rentMax) return `${Number(data.rentMin).toLocaleString()}〜${Number(data.rentMax).toLocaleString()}円`;
-    if (data.rentMax) return `〜${Number(data.rentMax).toLocaleString()}円`;
-    return "未入力";
+    const fmt = (n: string) => Number(n).toLocaleString();
+    if (data.rentMin && data.rentMax) return `${fmt(data.rentMin)} ~ ${fmt(data.rentMax)}¥`;
+    if (data.rentMax) return `~ ${fmt(data.rentMax)}¥`;
+    return "—";
   })();
+
+  const buildingLabel = data.buildingType
+    ? t.view.buildingTypes[data.buildingType as keyof typeof t.view.buildingTypes]
+    : undefined;
+
+  const moveInLabel = data.moveIn
+    ? formatMoveIn(data.moveIn, t.view.moveInAsap, t.view.moveInUndecided, lang)
+    : "—";
+
+  const opt = (map: Record<string, string>, key?: string) => key ? (map[key] ?? key) : "—";
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <div className="bg-blue-600 px-5 py-4 flex items-start justify-between">
-        <div>
-          <div className="text-xs text-blue-200 font-semibold tracking-widest uppercase mb-0.5">RoomPass</div>
-          <div className="text-xl font-bold leading-snug">
-            {data.name ? `${data.name} 様の希望条件` : "お客様の希望条件"}
-          </div>
-          {data.buildingType && (
-            <div className="mt-1">
-              <span className="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full">{data.buildingType}</span>
+      {/* ヘッダー */}
+      <div className="bg-blue-600 px-5 py-4">
+        <div className="flex items-start justify-between mb-2">
+          <div>
+            <div className="text-xs text-blue-200 font-semibold tracking-widest uppercase mb-0.5">RoomPass</div>
+            <div className="text-xl font-bold leading-snug">
+              {data.name ? `${data.name}${t.view.conditions}` : t.view.guestConditions}
             </div>
-          )}
+            {buildingLabel && (
+              <div className="mt-1">
+                <span className="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full">{buildingLabel}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <LanguageSwitcher />
+            <a href="/" className="text-xs text-blue-200 underline">{t.view.createOwn}</a>
+          </div>
         </div>
-        <a href="/" className="text-xs text-blue-200 underline mt-1 whitespace-nowrap">自分のを作る</a>
       </div>
 
       <div className="px-4 py-5 space-y-4 max-w-xl mx-auto">
+        {/* 入居時期・家賃 */}
         <div className="grid grid-cols-2 gap-3">
-          <Card title="入居希望時期">
-            <div className="text-2xl font-bold text-yellow-400 leading-tight">{data.moveIn || "未入力"}</div>
+          <Card title={t.view.moveIn}>
+            <div className="text-2xl font-bold text-yellow-400 leading-tight">{moveInLabel}</div>
           </Card>
-          <Card title="家賃（管理費込）">
+          <Card title={t.view.rent}>
             <div className="text-xl font-bold text-yellow-400 leading-tight">{rentDisplay}</div>
           </Card>
         </div>
 
-        {(data.layouts?.length || (data.areaMin && data.areaMin !== "問わない")) && (
-          <Card title="間取り・面積">
+        {/* 間取り・面積 */}
+        {(data.layouts?.length || (data.areaMin && data.areaMin !== "any")) && (
+          <Card title={t.view.layoutArea}>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {data.layouts?.map((l) => <Badge key={l} color="blue">{l}</Badge>)}
             </div>
-            {data.areaMin && data.areaMin !== "問わない" && (
-              <div className="text-sm text-gray-300">面積 {data.areaMin} 以上</div>
+            {data.areaMin && data.areaMin !== "any" && (
+              <div className="text-sm text-gray-300">
+                {opt(t.view.areaOptions, data.areaMin)} {t.view.areaAbove}
+              </div>
             )}
           </Card>
         )}
 
+        {/* 希望エリア */}
         {data.areas?.length ? (
-          <Card title="希望エリア・路線・駅">
+          <Card title={t.view.desiredArea}>
             <div className="flex flex-wrap gap-1.5">
               {data.areas.map((a) => <Badge key={a} color="gray">{a}</Badge>)}
             </div>
           </Card>
         ) : null}
 
-        <Card title="詳細条件">
+        {/* 詳細条件 */}
+        <Card title={t.view.details}>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <div className="text-xs text-gray-500">駅徒歩</div>
-              <div className="text-sm font-semibold">{data.walkMax || "問わない"}</div>
+              <div className="text-xs text-gray-500">{t.view.walk}</div>
+              <div className="text-sm font-semibold">{opt(t.view.walkOptions, data.walkMax)}</div>
             </div>
             <div>
-              <div className="text-xs text-gray-500">築年数</div>
-              <div className="text-sm font-semibold">{data.ageMax || "問わない"}</div>
+              <div className="text-xs text-gray-500">{t.view.age}</div>
+              <div className="text-sm font-semibold">{opt(t.view.ageOptions, data.ageMax)}</div>
             </div>
             {isMansionOrApart && (
               <>
                 <div>
-                  <div className="text-xs text-gray-500">階数</div>
-                  <div className="text-sm font-semibold">{data.floorMin || "問わない"}</div>
+                  <div className="text-xs text-gray-500">{t.view.floorMin}</div>
+                  <div className="text-sm font-semibold">{opt(t.view.floorOptions, data.floorMin)}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-gray-500">向き</div>
-                  <div className="text-sm font-semibold">{data.direction || "問わない"}</div>
+                  <div className="text-xs text-gray-500">{t.view.direction}</div>
+                  <div className="text-sm font-semibold">{opt(t.view.directionOptions, data.direction)}</div>
                 </div>
               </>
             )}
             {isHouse && (
               <div>
-                <div className="text-xs text-gray-500">駐車場</div>
-                <div className="text-sm font-semibold">{data.parking || "問わない"}</div>
+                <div className="text-xs text-gray-500">{t.view.parking}</div>
+                <div className="text-sm font-semibold">{opt(t.view.parkingOptions, data.parking)}</div>
               </div>
             )}
           </div>
         </Card>
 
+        {/* こだわり条件 */}
         {checkedOptions.length > 0 && (
-          <Card title="こだわり条件">
+          <Card title={t.view.preferences}>
             <div className="flex flex-wrap gap-1.5">
               {checkedOptions.map((v) => <Badge key={v} color="green">{v}</Badge>)}
             </div>
           </Card>
         )}
 
+        {/* フリーコメント */}
         {data.notes && (
-          <Card title="その他・メモ">
+          <Card title={t.view.notes}>
             <div className="text-sm leading-relaxed">{data.notes}</div>
           </Card>
         )}
 
-        <p className="text-center text-xs text-gray-600 pt-1 pb-4">
-          このページはRoomPassで生成されました
-        </p>
+        <p className="text-center text-xs text-gray-600 pt-1 pb-4">{t.view.footer}</p>
       </div>
     </div>
   );
@@ -236,7 +241,7 @@ export default function ViewPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
-        読み込み中...
+        Loading...
       </div>
     }>
       <ViewContent />
