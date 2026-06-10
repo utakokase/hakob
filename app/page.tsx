@@ -5,7 +5,7 @@ import QRDisplay from "@/components/QRDisplay";
 import { encodeData } from "@/lib/codec";
 import { useLang } from "@/lib/i18n/context";
 
-type BuildingType = "mansion" | "apartment" | "house" | "";
+type BuildingType = "mansion" | "house" | "";
 
 type FormData = {
   name: string;
@@ -19,7 +19,7 @@ type FormData = {
   walkMax: string;
   ageMax: string;
   floorMin: string;
-  direction: string;
+  directions: string[];
   parking: string;
   hasGarden: boolean;
   hasGarage: boolean;
@@ -52,7 +52,7 @@ const LAYOUTS_HOUSE   = ["1DK", "1LDK", "2DK", "2LDK", "3DK", "3LDK", "4LDK", "5
 const INITIAL_FORM: FormData = {
   name: "", buildingType: "", moveIn: "", rentMax: "", rentMin: "",
   layouts: [], areaMin: "any", areas: [], walkMax: "10min", ageMax: "any",
-  floorMin: "any", direction: "any", parking: "any",
+  floorMin: "any", directions: [], parking: "any",
   hasGarden: false, hasGarage: false, separateBath: false, pet: false,
   instrument: false, twoPersonOk: false, reikinNone: false, shikikinNone: false,
   freeRent: false, internetFree: false, washerIndoor: false, aircon: false,
@@ -96,8 +96,14 @@ export default function Home() {
   const [areaInput, setAreaInput] = useState("");
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
 
-  const isMansionOrApart = form.buildingType === "mansion" || form.buildingType === "apartment";
+  const isMansionOrApart = form.buildingType === "mansion";
   const isHouse = form.buildingType === "house";
+
+  const toggleDirection = (v: string) =>
+    setForm((f) => ({
+      ...f,
+      directions: f.directions.includes(v) ? f.directions.filter((d) => d !== v) : [...f.directions, v],
+    }));
   const layoutOptions = isHouse ? LAYOUTS_HOUSE : LAYOUTS_MANSION;
 
   const set = <K extends keyof FormData>(key: K, value: FormData[K]) =>
@@ -166,13 +172,21 @@ export default function Home() {
           <label className="block text-sm font-semibold text-gray-700 mb-2">
             {t.form.buildingType} <span className="text-red-500">*</span>
           </label>
-          <div className="flex flex-wrap gap-2">
-            {(["mansion", "apartment", "house"] as BuildingType[]).map((type) => (
-              <ChipButton key={type}
-                label={t.form.buildingTypes[type as keyof typeof t.form.buildingTypes]}
-                selected={form.buildingType === type}
-                onClick={() => { setForm({ ...INITIAL_FORM, name: form.name, buildingType: type }); setGeneratedUrl(null); }}
-              />
+          <div className="flex gap-4">
+            {(["mansion", "house"] as BuildingType[]).map((type) => (
+              <label key={type} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="buildingType"
+                  value={type}
+                  checked={form.buildingType === type}
+                  onChange={() => { setForm({ ...INITIAL_FORM, name: form.name, buildingType: type }); setGeneratedUrl(null); }}
+                  className="w-4 h-4 accent-blue-600"
+                />
+                <span className="text-sm font-medium text-gray-700">
+                  {t.form.buildingTypes[type as keyof typeof t.form.buildingTypes]}
+                </span>
+              </label>
             ))}
           </div>
         </div>
@@ -298,7 +312,7 @@ export default function Home() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">{t.form.direction}</label>
                   <div className="flex flex-wrap gap-1.5">
                     {Object.entries(t.form.directionOptions).map(([key, label]) => (
-                      <ChipButton key={key} label={label} selected={form.direction === key} onClick={() => set("direction", key)} />
+                      <ChipButton key={key} label={label} selected={form.directions.includes(key)} onClick={() => toggleDirection(key)} />
                     ))}
                   </div>
                 </div>
@@ -366,7 +380,7 @@ export default function Home() {
                 <CheckItem label={t.form.bathDryer} checked={form.bathDryer} onChange={(v) => set("bathDryer", v)} />
                 <CheckItem label={t.form.floorHeating} checked={form.floorHeating} onChange={(v) => set("floorHeating", v)} />
                 <CheckItem label={t.form.washlet} checked={form.washlet} onChange={(v) => set("washlet", v)} />
-                {!isHouse && (
+                {isMansionOrApart && (
                   <CheckItem label={t.form.parkingAvailable}
                     checked={form.parking !== "none" && form.parking !== "any"}
                     onChange={(v) => set("parking", v ? "1car" : "any")} />

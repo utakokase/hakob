@@ -18,7 +18,7 @@ type ConditionData = {
   walkMax?: string;
   ageMax?: string;
   floorMin?: string;
-  direction?: string;
+  directions?: string[];
   parking?: string;
   hasGarden?: boolean;
   hasGarage?: boolean;
@@ -200,10 +200,14 @@ function ViewContent() {
                   <div className="text-xs text-gray-500">{t.view.floorMin}</div>
                   <div className="text-sm font-semibold">{opt(t.view.floorOptions, data.floorMin)}</div>
                 </div>
-                <div>
-                  <div className="text-xs text-gray-500">{t.view.direction}</div>
-                  <div className="text-sm font-semibold">{opt(t.view.directionOptions, data.direction)}</div>
-                </div>
+                {data.directions && data.directions.length > 0 && (
+                  <div>
+                    <div className="text-xs text-gray-500">{t.view.direction}</div>
+                    <div className="text-sm font-semibold">
+                      {data.directions.map((d) => t.view.directionOptions[d] ?? d).join(" / ")}
+                    </div>
+                  </div>
+                )}
               </>
             )}
             {isHouse && (
