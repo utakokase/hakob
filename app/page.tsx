@@ -146,7 +146,7 @@ export default function Home() {
   return (
     <div className="max-w-lg mx-auto px-4 pb-8">
       <div className="text-center mb-6 pt-2">
-        <h1 className="text-3xl font-bold text-blue-600 mb-1">RoomPass</h1>
+        <h1 className="text-3xl font-bold text-blue-600 mb-1">Hakob</h1>
         <p className="text-gray-500 text-sm">{t.common.tagline}</p>
       </div>
 

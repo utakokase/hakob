@@ -4,7 +4,7 @@ import { LanguageProvider } from "@/lib/i18n/context";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 export const metadata: Metadata = {
-  title: "RoomPass - 賃貸希望条件をQRで伝える",
+  title: "Hakob - 賃貸希望条件をQRで伝える",
   description: "希望条件を入力してQRコードを生成。不動産屋に見せるだけで条件が伝わります。",
 };
 

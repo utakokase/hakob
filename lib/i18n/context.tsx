@@ -19,13 +19,13 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>("ja");
 
   useEffect(() => {
-    const saved = localStorage.getItem("roompass-lang") as Lang | null;
+    const saved = localStorage.getItem("hakob-lang") as Lang | null;
     if (saved && saved in translations) setLangState(saved);
   }, []);
 
   const setLang = (l: Lang) => {
     setLangState(l);
-    localStorage.setItem("roompass-lang", l);
+    localStorage.setItem("hakob-lang", l);
   };
 
   return (

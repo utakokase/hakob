@@ -132,7 +132,7 @@ function ViewContent() {
       <div className="bg-blue-600 px-5 py-4">
         <div className="flex items-start justify-between mb-2">
           <div>
-            <div className="text-xs text-blue-200 font-semibold tracking-widest uppercase mb-0.5">RoomPass</div>
+            <div className="text-xs text-blue-200 font-semibold tracking-widest uppercase mb-0.5">Hakob</div>
             <div className="text-xl font-bold leading-snug">
               {data.name ? `${data.name}${t.view.conditions}` : t.view.guestConditions}
             </div>
